@@ -26,7 +26,7 @@ except ImportError:
 class SystemMonitor:
     def __init__(self):
         self.last_net_io = psutil.net_io_counters()
-        self.last_disk_io = psutil.disk_io_counters()
+        self.last_disk_io = psutil.disk_io_counters() or None
         self.last_time = time.time()
         
     def get_cpu_info(self):
@@ -154,24 +154,29 @@ class SystemMonitor:
         current_time = time.time()
         current_disk_io = psutil.disk_io_counters()
         time_diff = current_time - self.last_time
-        
-        if time_diff > 0:
+
+        if current_disk_io and self.last_disk_io and time_diff > 0:
             read_speed = (current_disk_io.read_bytes - self.last_disk_io.read_bytes) / time_diff
             write_speed = (current_disk_io.write_bytes - self.last_disk_io.write_bytes) / time_diff
-        else:
-            read_speed = 0
-            write_speed = 0
-        
-        self.last_disk_io = current_disk_io
-        
-        return {
-            'partitions': partitions,
-            'io': {
+            self.last_disk_io = current_disk_io
+
+            io_data = {
                 'read_bytes': current_disk_io.read_bytes,
                 'write_bytes': current_disk_io.write_bytes,
                 'read_speed': round(read_speed / (1024**2), 2),  # MB/s
                 'write_speed': round(write_speed / (1024**2), 2)  # MB/s
             }
+        else:
+            io_data = {
+                'read_bytes': 0,
+                'write_bytes': 0,
+                'read_speed': 0,
+                'write_speed': 0
+            }
+
+        return {
+            'partitions': partitions,
+            'io': io_data
         }
     
     def get_network_info(self):
