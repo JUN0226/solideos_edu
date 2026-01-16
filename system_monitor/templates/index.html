@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="실시간 시스템 리소스 모니터링 대시보드 - CPU, GPU, 메모리, 디스크, 네트워크">
+    <title>시스템 리소스 모니터링</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- 헤더 -->
+        <header class="dashboard-header">
+            <h1>시스템 리소스 모니터링</h1>
+            <div class="system-info">
+                <span>🖥️ <span id="hostname">-</span></span>
+                <span>⏱️ 가동시간: <span id="uptime">-</span></span>
+            </div>
+        </header>
+        
+        <!-- 컨트롤 패널 -->
+        <div class="control-panel">
+            <button id="btn-start-recording" class="btn btn-primary" onclick="startRecording()">
+                ⏺️ 기록 시작 (5분)
+            </button>
+            <button id="btn-stop-recording" class="btn btn-danger" onclick="stopRecording()" disabled>
+                ⏹️ 기록 중지
+            </button>
+            <button id="btn-generate-report" class="btn btn-success" onclick="generateReport()" disabled>
+                📄 PDF 리포트 생성
+            </button>
+            <button id="btn-download-report" class="btn btn-primary" onclick="downloadReport()" disabled>
+                ⬇️ 다운로드
+            </button>
+            
+            <div id="recording-status" class="recording-status hidden">
+                <span class="recording-dot"></span>
+                <span id="recording-time">기록 중...</span>
+            </div>
+            
+            <div id="recording-progress" class="progress-bar hidden">
+                <div id="progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+        </div>
+        
+        <!-- 대시보드 그리드 -->
+        <div class="dashboard-grid">
+            
+            <!-- CPU 카드 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon cpu">💻</span>
+                        CPU
+                    </div>
+                    <div class="temperature">
+                        <span class="temp-icon">🌡️</span>
+                        <span id="cpu-temp" class="temp-value">-</span>
+                    </div>
+                </div>
+                
+                <div class="gauge-container">
+                    <svg id="cpu-gauge" width="140" height="140" viewBox="0 0 120 120">
+                        <circle class="gauge-bg" cx="60" cy="60" r="54" transform="rotate(-90 60 60)"/>
+                        <circle class="gauge-fill" cx="60" cy="60" r="54" transform="rotate(-90 60 60)"
+                            stroke="#3b82f6" stroke-dasharray="339.292" stroke-dashoffset="339.292"/>
+                    </svg>
+                    <div class="gauge-text">
+                        <div id="cpu-percent" class="gauge-value">0%</div>
+                        <div class="gauge-label">사용률</div>
+                    </div>
+                </div>
+                
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">코어</div>
+                        <div id="cpu-cores" class="detail-value">-</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">주파수</div>
+                        <div id="cpu-freq" class="detail-value">-</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 메모리 카드 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon memory">🧠</span>
+                        메모리
+                    </div>
+                </div>
+                
+                <div class="gauge-container">
+                    <svg id="memory-gauge" width="140" height="140" viewBox="0 0 120 120">
+                        <circle class="gauge-bg" cx="60" cy="60" r="54" transform="rotate(-90 60 60)"/>
+                        <circle class="gauge-fill" cx="60" cy="60" r="54" transform="rotate(-90 60 60)"
+                            stroke="#22c55e" stroke-dasharray="339.292" stroke-dashoffset="339.292"/>
+                    </svg>
+                    <div class="gauge-text">
+                        <div id="memory-percent" class="gauge-value">0%</div>
+                        <div class="gauge-label">사용률</div>
+                    </div>
+                </div>
+                
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">사용 중</div>
+                        <div id="memory-used" class="detail-value">-</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">전체</div>
+                        <div id="memory-total" class="detail-value">-</div>
+                    </div>
+                    <div class="detail-item" style="grid-column: span 2;">
+                        <div class="detail-label">사용 가능</div>
+                        <div id="memory-available" class="detail-value">-</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- GPU 카드 -->
+            <div id="gpu-card" class="card" style="display: none;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon gpu">🎮</span>
+                        GPU
+                    </div>
+                </div>
+                
+                <div class="gauge-container">
+                    <svg id="gpu-gauge" width="140" height="140" viewBox="0 0 120 120">
+                        <circle class="gauge-bg" cx="60" cy="60" r="54" transform="rotate(-90 60 60)"/>
+                        <circle class="gauge-fill" cx="60" cy="60" r="54" transform="rotate(-90 60 60)"
+                            stroke="#8b5cf6" stroke-dasharray="339.292" stroke-dashoffset="339.292"/>
+                    </svg>
+                    <div class="gauge-text">
+                        <div id="gpu-load-gauge" class="gauge-value">0%</div>
+                        <div class="gauge-label">사용률</div>
+                    </div>
+                </div>
+                
+                <div class="gpu-info">
+                    <div id="gpu-name" class="gpu-name">-</div>
+                    <div class="gpu-stats">
+                        <div class="gpu-stat">
+                            <div id="gpu-load" class="gpu-stat-value">-</div>
+                            <div class="gpu-stat-label">사용률</div>
+                        </div>
+                        <div class="gpu-stat">
+                            <div id="gpu-memory" class="gpu-stat-value">-</div>
+                            <div class="gpu-stat-label">메모리</div>
+                        </div>
+                        <div class="gpu-stat">
+                            <div id="gpu-temp" class="gpu-stat-value">-</div>
+                            <div class="gpu-stat-label">온도</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CPU/메모리 히스토리 -->
+            <div class="card" style="grid-column: span 2;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon cpu">📈</span>
+                        CPU & 메모리 추이
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="cpuHistoryChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- 네트워크 카드 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon network">🌐</span>
+                        네트워크
+                    </div>
+                </div>
+                
+                <div class="stats-row" style="border-top: none; padding-top: 0;">
+                    <div class="stat-item">
+                        <div id="network-upload" class="stat-value upload">0 KB/s</div>
+                        <div class="stat-label">📤 송신</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="network-download" class="stat-value download">0 KB/s</div>
+                        <div class="stat-label">📥 수신</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="networkHistoryChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- 디스크 I/O 카드 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon disk">💾</span>
+                        디스크 I/O
+                    </div>
+                </div>
+                
+                <div class="stats-row" style="border-top: none; padding-top: 0;">
+                    <div class="stat-item">
+                        <div id="disk-read" class="stat-value read">0 MB/s</div>
+                        <div class="stat-label">📖 읽기</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="disk-write" class="stat-value write">0 MB/s</div>
+                        <div class="stat-label">✏️ 쓰기</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 디스크 파티션 -->
+            <div class="card" style="grid-column: span 2;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon disk">📁</span>
+                        디스크 파티션
+                    </div>
+                </div>
+                
+                <div id="partition-list" class="partition-list">
+                    <!-- 동적으로 채워짐 -->
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- 푸터 -->
+        <footer class="dashboard-footer">
+            시스템 리소스 모니터링 대시보드 | 실시간 업데이트 중 (1초 간격)
+        </footer>
+    </div>
+    
+    <!-- 알림 -->
+    <div id="notification" class="notification hidden"></div>
+    
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
